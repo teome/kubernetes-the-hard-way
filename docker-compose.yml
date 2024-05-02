@@ -1,0 +1,35 @@
+version: '3'
+
+services:
+  jumpbox:
+    image: debian:bookworm
+    container_name: jumpbox
+    networks:
+      - my-network
+    command: tail -f /dev/null
+
+  server:
+    image: debian:bookworm
+    container_name: server
+    networks:
+      - my-network
+    command: tail -f /dev/null
+
+  node-0:
+    image: debian:bookworm
+    container_name: node-0
+    networks:
+      - my-network
+    command: tail -f /dev/null
+
+  node-1:
+    image: debian:bookworm
+    container_name: node-1
+    networks:
+      - my-network
+    command: tail -f /dev/null
+
+networks:
+  my-network:
+    name: my-network
+    driver: bridge
