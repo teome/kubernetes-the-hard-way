@@ -33,13 +33,15 @@ resource "google_compute_network" "vpc_network" {
 
 resource "google_compute_instance" "vm_instance" {
   name         = "terraform-instance"
-  machine_type = "f1-micro"
+  machine_type = "e2-standard-4"
   zone         = var.zone
   tags         = ["web", "dev"]
 
   boot_disk {
+    auto_delete = true
     initialize_params {
       image = "debian-cloud/debian-12"
+      size  = 40
     }
   }
 
@@ -48,4 +50,14 @@ resource "google_compute_instance" "vm_instance" {
     access_config {
     }
   }
+
+  metadata = {
+    enable-oslogin = "true"
+  }
+
+  service_account {
+    email  = "788297811658-compute@developer.gserviceaccount.com"
+    scopes = ["https://www.googleapis.com/auth/devstorage.read_only", "https://www.googleapis.com/auth/logging.write", "https://www.googleapis.com/auth/monitoring.write", "https://www.googleapis.com/auth/service.management.readonly", "https://www.googleapis.com/auth/servicecontrol", "https://www.googleapis.com/auth/trace.append"]
+  }
+
 }
