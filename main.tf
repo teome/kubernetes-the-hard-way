@@ -31,11 +31,24 @@ resource "google_compute_network" "vpc_network" {
   # auto_create_subnetworks = false
 }
 
+resource "google_compute_firewall" "ssh" {
+  name = "allow-ssh"
+  allow {
+    ports    = ["22"]
+    protocol = "tcp"
+  }
+  direction     = "INGRESS"
+  network       = google_compute_network.vpc_network.id
+  priority      = 1000
+  source_ranges = ["0.0.0.0/0"]
+  target_tags   = ["ssh"]
+}
+
 resource "google_compute_instance" "vm_instance" {
   name         = "terraform-instance"
   machine_type = "e2-standard-4"
   zone         = var.zone
-  tags         = ["web", "dev"]
+  tags         = ["web", "dev", "ssh"]
 
   boot_disk {
     auto_delete = true
