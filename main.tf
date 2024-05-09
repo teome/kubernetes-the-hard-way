@@ -7,11 +7,15 @@ variable "region" {
 }
 
 variable "zone" {
-  default = "us-central1-c"
+  default = "us-central1-f"
 }
 
 variable "n_workers" {
   default = 2
+}
+
+variable "bootdisk" {
+  default = "debian-cloud/debian-12-arm64"
 }
 
 
@@ -31,7 +35,7 @@ provider "google" {
 }
 
 resource "google_compute_network" "vpc_network" {
-  name = "terraform-network"
+  name                    = "terraform-network"
   auto_create_subnetworks = false
 }
 
@@ -40,6 +44,11 @@ resource "google_compute_subnetwork" "kubernetes" {
   ip_cidr_range = "10.240.0.0/24"
   region        = var.region
   network       = google_compute_network.vpc_network.id
+}
+
+resource "google_compute_address" "vpc_network" {
+  name   = "kubernetes-the-hard-way"
+  region = var.region
 }
 
 resource "google_compute_firewall" "external" {
@@ -90,7 +99,7 @@ resource "google_compute_instance" "jumpbox" {
   boot_disk {
     auto_delete = true
     initialize_params {
-      image = "debian-cloud/debian-12"
+      image = var.bootdisk
       size  = 10
     }
   }
@@ -122,7 +131,7 @@ resource "google_compute_instance" "server" {
   boot_disk {
     auto_delete = true
     initialize_params {
-      image = "debian-cloud/debian-12"
+      image = var.bootdisk
       size  = 20
     }
   }
@@ -146,7 +155,7 @@ resource "google_compute_instance" "server" {
 }
 
 resource "google_compute_instance" "workers" {
-  count = var.n_workers.default
+  count = var.n_workers
 
   name         = "worker-${count.index}"
   machine_type = "t2a-standard-1"
@@ -156,7 +165,7 @@ resource "google_compute_instance" "workers" {
   boot_disk {
     auto_delete = true
     initialize_params {
-      image = "debian-cloud/debian-12"
+      image = var.bootdisk
       size  = 20
     }
   }
@@ -166,12 +175,12 @@ resource "google_compute_instance" "workers" {
     subnetwork = google_compute_subnetwork.kubernetes.id
     access_config {
     }
-    network_ip  = "10.240.0.2${count.index}"
+    network_ip = "10.240.0.2${count.index}"
   }
 
   metadata = {
     enable-oslogin = "true"
-    pod-cidr = "10.200.${count.index}.0/24"
+    pod-cidr       = "10.200.${count.index}.0/24"
   }
 
   service_account {
