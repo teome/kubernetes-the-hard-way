@@ -10,6 +10,10 @@ variable "zone" {
   default = "us-central1-c"
 }
 
+variable "n_workers" {
+  default = 2
+}
+
 
 terraform {
   required_providers {
@@ -28,14 +32,28 @@ provider "google" {
 
 resource "google_compute_network" "vpc_network" {
   name = "terraform-network"
-  # auto_create_subnetworks = false
+  auto_create_subnetworks = false
 }
 
-resource "google_compute_firewall" "ssh" {
-  name = "allow-ssh"
+resource "google_compute_subnetwork" "kubernetes" {
+  name          = "kubernetes"
+  ip_cidr_range = "10.240.0.0/24"
+  region        = var.region
+  network       = google_compute_network.vpc_network.id
+}
+
+resource "google_compute_firewall" "external" {
+  name = "allow-external"
   allow {
     ports    = ["22"]
     protocol = "tcp"
+  }
+  allow {
+    ports    = ["6443"]
+    protocol = "tcp"
+  }
+  allow {
+    protocol = "icmp"
   }
   direction     = "INGRESS"
   network       = google_compute_network.vpc_network.id
@@ -44,24 +62,45 @@ resource "google_compute_firewall" "ssh" {
   target_tags   = ["ssh"]
 }
 
-resource "google_compute_instance" "vm_instance" {
-  name         = "terraform-instance"
-  machine_type = "e2-standard-4"
+resource "google_compute_firewall" "internal" {
+  name = "allow-internal"
+  allow {
+    protocol = "tcp"
+  }
+  allow {
+    protocol = "udp"
+  }
+  allow {
+    protocol = "icmp"
+  }
+  direction     = "INGRESS"
+  network       = google_compute_network.vpc_network.id
+  priority      = 1000
+  source_ranges = ["10.240.0.0/24", "10.200.0.0/16"]
+}
+
+################################################
+# Compute
+resource "google_compute_instance" "jumpbox" {
+  name         = "jumpbox"
+  machine_type = "t2a-standard-1"
   zone         = var.zone
-  tags         = ["web", "dev", "ssh"]
+  tags         = ["kubernetes-the-hard-way", "controller", "ssh"]
 
   boot_disk {
     auto_delete = true
     initialize_params {
       image = "debian-cloud/debian-12"
-      size  = 40
+      size  = 10
     }
   }
 
+  can_ip_forward = true
   network_interface {
-    network = google_compute_network.vpc_network.name
+    subnetwork = google_compute_subnetwork.kubernetes.id
     access_config {
     }
+    network_ip = "10.240.0.10"
   }
 
   metadata = {
@@ -72,5 +111,71 @@ resource "google_compute_instance" "vm_instance" {
     email  = "788297811658-compute@developer.gserviceaccount.com"
     scopes = ["https://www.googleapis.com/auth/devstorage.read_only", "https://www.googleapis.com/auth/logging.write", "https://www.googleapis.com/auth/monitoring.write", "https://www.googleapis.com/auth/service.management.readonly", "https://www.googleapis.com/auth/servicecontrol", "https://www.googleapis.com/auth/trace.append"]
   }
+}
 
+resource "google_compute_instance" "server" {
+  name         = "server"
+  machine_type = "t2a-standard-1"
+  zone         = var.zone
+  tags         = ["kubernetes-the-hard-way", "server", "ssh"]
+
+  boot_disk {
+    auto_delete = true
+    initialize_params {
+      image = "debian-cloud/debian-12"
+      size  = 20
+    }
+  }
+
+  can_ip_forward = true
+  network_interface {
+    subnetwork = google_compute_subnetwork.kubernetes.id
+    access_config {
+    }
+    network_ip = "10.240.0.11"
+  }
+
+  metadata = {
+    enable-oslogin = "true"
+  }
+
+  service_account {
+    email  = "788297811658-compute@developer.gserviceaccount.com"
+    scopes = ["https://www.googleapis.com/auth/devstorage.read_only", "https://www.googleapis.com/auth/logging.write", "https://www.googleapis.com/auth/monitoring.write", "https://www.googleapis.com/auth/service.management.readonly", "https://www.googleapis.com/auth/servicecontrol", "https://www.googleapis.com/auth/trace.append"]
+  }
+}
+
+resource "google_compute_instance" "workers" {
+  count = var.n_workers.default
+
+  name         = "worker-${count.index}"
+  machine_type = "t2a-standard-1"
+  zone         = var.zone
+  tags         = ["kubernetes-the-hard-way", "worker", "ssh"]
+
+  boot_disk {
+    auto_delete = true
+    initialize_params {
+      image = "debian-cloud/debian-12"
+      size  = 20
+    }
+  }
+
+  can_ip_forward = true
+  network_interface {
+    subnetwork = google_compute_subnetwork.kubernetes.id
+    access_config {
+    }
+    network_ip  = "10.240.0.2${count.index}"
+  }
+
+  metadata = {
+    enable-oslogin = "true"
+    pod-cidr = "10.200.${count.index}.0/24"
+  }
+
+  service_account {
+    email  = "788297811658-compute@developer.gserviceaccount.com"
+    scopes = ["https://www.googleapis.com/auth/devstorage.read_only", "https://www.googleapis.com/auth/logging.write", "https://www.googleapis.com/auth/monitoring.write", "https://www.googleapis.com/auth/service.management.readonly", "https://www.googleapis.com/auth/servicecontrol", "https://www.googleapis.com/auth/trace.append"]
+  }
 }
