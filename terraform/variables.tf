@@ -2,6 +2,9 @@ variable "project" {
   default = "k8s-from-scratch-0-422016"
 }
 
+variable "compute_service_account_email" {
+  default = "788297811658-compute@developer.gserviceaccount.com"
+}
 variable "region" {
   default = "us-central1"
 }
