@@ -28,7 +28,7 @@ Add another command to echo the line for `127.0.1.1 FQDN HOSTNAME` to /etc/hosts
 
 ```bash
 while read IP FQDN HOST SUBNET; do 
-    CMD="printf '127.0.1.1\t${FQDN} ${HOST}\n' >> /etc/hosts"
+    CMD="echo -e '127.0.1.1\t${FQDN} ${HOST}' >> /etc/hosts"
     ssh -n root@${IP} "$CMD"
     ssh -n root@${IP} hostnamectl hostname ${HOST}
 done < machines.txt
@@ -40,10 +40,23 @@ Don't do the above which could result in two entries but first check for whether
 
 ```bash
 while read IP FQDN HOST SUBNET; do 
-    CMD="grep -q '127.0.1.1' /etc/hosts && sed -i 's/^127.0.1.1.*/127.0.1.1\t${FQDN} ${HOST}/' /etc/hosts || echo '127.0.1.1\t${FQDN} ${HOST}' >> /etc/hosts"
+    CMD="grep -q '127.0.1.1' /etc/hosts && sed -i 's/^127.0.1.1.*/127.0.1.1\t${FQDN} ${HOST}/' /etc/hosts || echo -e '127.0.1.1\t${FQDN} ${HOST}' >> /etc/hosts"
     ssh -n root@${IP} "$CMD"
     ssh -n root@${IP} hostnamectl hostname ${HOST}
 done < machines.txt
 ```
 
+or alternative form using "here document"
 
+```bash
+while read IP FQDN HOST SUBNET; do 
+    ssh -n root@${IP} <<EOF
+if grep -q '127.0.1.1' /etc/hosts; then
+    sed -i 's/^127.0.1.1.*/127.0.1.1\t${FQDN} ${HOST}/' /etc/hosts
+else
+    echo -e '127.0.1.1\t${FQDN} ${HOST}' >> /etc/hosts
+fi
+hostnamectl hostname ${HOST}
+EOF
+done < machines.txt
+```
