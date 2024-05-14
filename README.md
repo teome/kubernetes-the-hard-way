@@ -6,7 +6,7 @@ Supporting and modified scripts for kubernetes the hard way
 
 ### Provisioning using GCP
 
-Each of jumpbox, server, worker-0 and worker-1 are provisioned using GCP. Use terraform scripts addded to the repo to achieve this. Make sure gcloud is setup with the project, region and zone to use.
+Each of jumpbox, server, node-0 and node-1 are provisioned using GCP. Use terraform scripts addded to the repo to achieve this. Make sure gcloud is setup with the project, region and zone to use.
 
 Reference the repo [kubernetes-the-hard-way](https://github.com/kubernetes-the-hard-way/kubernetes-the-hard-way) at the commit before the change to be cloud provider agnostic. There are instructions for GCP here. 
 
