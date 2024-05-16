@@ -170,3 +170,32 @@ resources:
               secret: ${ENCRYPTION_KEY}
       - identity: {}
 ```
+
+## 9. Bootstrapping Kubernetes Workers
+
+There's an error in the scp command. It overwrites the `kubelet-config.yaml` that was just edited and copied over in the previous loop over nodes doing sed then scp of exactly this file.
+
+It's just the one line in otherwise ok. 
+
+Use the following command:
+
+```bash
+for host in node-0 node-1; do
+  scp \
+    downloads/runc.arm64 \
+    downloads/crictl-v1.28.0-linux-arm.tar.gz \
+    downloads/cni-plugins-linux-arm64-v1.3.0.tgz \
+    downloads/containerd-1.7.8-linux-arm64.tar.gz \
+    downloads/kubectl \
+    downloads/kubelet \
+    downloads/kube-proxy \
+    configs/99-loopback.conf \
+    configs/containerd-config.toml \
+    configs/kube-proxy-config.yaml \
+    units/containerd.service \
+    units/kubelet.service \
+    units/kube-proxy.service \
+    root@$host:~/
+done
+```
+
