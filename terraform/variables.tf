@@ -18,5 +18,5 @@ variable "n_nodes" {
 }
 
 variable "bootdisk" {
-  default = "debian-cloud/debian-11-arm64"
+  default = "debian-cloud/debian-12-arm64"
 }
