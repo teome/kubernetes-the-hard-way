@@ -68,7 +68,7 @@ resource "google_compute_instance" "nodes" {
   name         = "node-${count.index}"
   machine_type = "t2a-standard-1"
   zone         = var.zone
-  tags         = ["kubernetes-the-hard-way", "node"]
+  tags         = ["kubernetes-the-hard-way", "node", "ssh"]
 
   boot_disk {
     auto_delete = true
