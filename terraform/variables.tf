@@ -13,10 +13,10 @@ variable "zone" {
   default = "us-central1-f"
 }
 
-variable "n_workers" {
+variable "n_nodes" {
   default = 2
 }
 
 variable "bootdisk" {
-  default = "debian-cloud/debian-12-arm64"
+  default = "debian-cloud/debian-11-arm64"
 }

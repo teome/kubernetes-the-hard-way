@@ -62,13 +62,13 @@ resource "google_compute_instance" "server" {
   }
 }
 
-resource "google_compute_instance" "workers" {
-  count = var.n_workers
+resource "google_compute_instance" "nodes" {
+  count = var.n_nodes
 
-  name         = "worker-${count.index}"
+  name         = "node-${count.index}"
   machine_type = "t2a-standard-1"
   zone         = var.zone
-  tags         = ["kubernetes-the-hard-way", "worker"]
+  tags         = ["kubernetes-the-hard-way", "node"]
 
   boot_disk {
     auto_delete = true
