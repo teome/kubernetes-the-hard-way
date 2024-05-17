@@ -120,6 +120,15 @@ https://server.kubernetes.local:6443
 
 By default, GCP sets different local FQDN that include the zone/region and project, so we have to set this appropriately.
 
+There are two ways to deal with this.
+
+1. Keep the use of `<hostname>.kubernetes.local` throughout. This is simplest. To do so, make sure to set the `/etc/hosts` file appropriately. This domain won't work in the GCP infrastructure or their commands without manually adding and modifying DNS for the VPC. This is an option but not even needed here becuase all the work is done within the VPC from jumpbox and server.
+2. Change all references to use the subnet domain and DNS automatically appied to GCP VPC subnets. This of the form `<hostname>.<zone>.<region>.<project>.internal` e.g. `server.us-central1-f.c.k8s-from-scratch-0-422016.internal`.
+
+Option `1` is simple enough to need no more instructions.
+
+### Option 2
+
 Use the command, replacing the `--server=...` appropriately with the FQDN for the `server` instance. Get this using `ssh -n server hostname --fqdn` or on the box directly. This has to be done for all following commands that do the same, or just set an env variable to use in all subsequent commands.
 
 
