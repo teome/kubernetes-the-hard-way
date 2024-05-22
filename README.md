@@ -180,6 +180,40 @@ resources:
       - identity: {}
 ```
 
+Create manually or using:
+
+```bash
+cat > encryption-config.yaml <<EOF
+kind: EncryptionConfig
+apiVersion: v1
+resources:
+  - resources:
+      - secrets
+    providers:
+      - aescbc:
+          keys:
+            - name: key1
+              secret: ${ENCRYPTION_KEY}
+      - identity: {}
+EOF
+```
+
+
+
+## 7 Bootstrapping etcd
+
+Suspect there's an error in the `--name` option for starting the etcd daemon in the systemd services file `etcd.service`.
+
+The current file has the name parameter as `--name controller`. But the instructions just before this say to set the name to the host name of the current compute instance.
+
+Similarly in the [docs for etcd clustering](https://etcd.io/docs/v3.5/op-guide/clustering/) suggest using the hostname. As do the old docs for the previous version of kubernetes-the-hard-way -- but in this case there were multiple controllers so it was necesesary to discriminate. 
+
+Keep as `controller` and see if it works. Should be easy to fix if not.
+
+**IP:** Another point of note is that in the docs they use the external IP (on the local subnet, not fully external), rather than the loopback as is used in the docs here. Again, stick with as is and see if it works anyway.
+
+
+
 ## 9. Bootstrapping Kubernetes Workers
 
 There's an error in the scp command. It overwrites the `kubelet-config.yaml` that was just edited and copied over in the previous loop over nodes doing sed then scp of exactly this file.
@@ -208,3 +242,80 @@ for host in node-0 node-1; do
 done
 ```
 
+## 11. Pod Network Routes
+
+The updated instructions for setup on bare-metal/ infrastructure independent instances seems to cause issues with the network routes needed when the setup has been done using GCP.
+
+The setup in this repo used the old instructions for instances and VPC, subnet, firewalls, and hence network routes. When trying to set the route to the CIDR for the kubernetes subnets there's an error that there isn't a valid next hop. 
+
+Specifically, we need to be able to reach 10.200.[0,1].0/24 (the kubernetes pod CIDRs for nodes 0, 1) via each of the nodes' subnet IPs 10.240.0.2[0,1]. This should be the next hop for any route that needs 10.200.[0,1].0/24.
+
+This command fails
+
+```bash
+{
+  SERVER_IP=$(grep server machines.txt | cut -d " " -f 1)
+  NODE_0_IP=$(grep node-0 machines.txt | cut -d " " -f 1)
+  NODE_0_SUBNET=$(grep node-0 machines.txt | cut -d " " -f 4)
+  NODE_1_IP=$(grep node-1 machines.txt | cut -d " " -f 1)
+  NODE_1_SUBNET=$(grep node-1 machines.txt | cut -d " " -f 4)
+}
+
+ssh root@server <<EOF
+  ip route add ${NODE_0_SUBNET} via ${NODE_0_IP}
+  ip route add ${NODE_1_SUBNET} via ${NODE_1_IP}
+EOF
+
+ssh root@node-0 <<EOF
+  ip route add ${NODE_1_SUBNET} via ${NODE_1_IP}
+
+EOF
+```
+
+Instead we need to use the [old instructions](https://github.com/kelseyhightower/kubernetes-the-hard-way/blob/79a3f79b27bd28f82f071bb877a266c2e62ee506/docs/11-pod-network-routes.md) and set the routes using GCP gcloud commands. 
+
+TODO: This could also be converted and added to terraform.
+
+Print the internal IP address and Pod CIDR range for each worker instance (note the change from `worker-[0,1,2]` to `node-[0,1]`):
+
+```bash
+for instance in node-0 node-1; do
+  gcloud compute instances describe ${instance} \
+    --format 'value[separator=" "](networkInterfaces[0].networkIP,metadata.items[1].value)'
+done
+```
+
+The `metadata.item` index is dependent on any other metadata set and the order, so check what's needed for the `pod-cidr`.
+
+> output
+
+```
+10.240.0.20 10.200.0.0/24
+10.240.0.21 10.200.1.0/24
+```
+
+Note that the VPC in this setup is called `terraform-network` not `kubernetes-the-hard-way` as it is in the original instructions. The subnet is the same name `kubernetes`.
+
+```bash
+for i in 0 1; do
+  gcloud compute routes create kubernetes-route-10-200-${i}-0-24 \
+    --network terraform-network \
+    --next-hop-address 10.240.0.2${i} \
+    --destination-range 10.200.${i}.0/24
+done
+```
+
+
+```bash 
+gcloud compute routes list --filter "network: terraform-network"
+```
+
+> output
+
+```
+NAME                            NETWORK            DEST_RANGE     NEXT_HOP                  PRIORITY
+default-route-2ecc0779a97ec3c4  terraform-network  10.240.0.0/24  terraform-network         0
+default-route-cfb9ea6bb1a4cf0a  terraform-network  0.0.0.0/0      default-internet-gateway  1000
+kubernetes-route-10-200-0-0-24  terraform-network  10.200.0.0/24  10.240.0.20               1000
+kubernetes-route-10-200-1-0-24  terraform-network  10.200.1.0/24  10.240.0.21               1000
+```
